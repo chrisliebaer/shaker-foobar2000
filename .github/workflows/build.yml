@@ -1,0 +1,79 @@
+name: Build
+
+on:
+  push:
+    branches: [master]
+    tags: ['v*']
+  pull_request:
+    branches: [master]
+
+env:
+  FB2K_SDK_URL: https://www.foobar2000.org/downloads/SDK-2025-03-07.7z
+  WTL_URL: https://sourceforge.net/projects/wtl/files/WTL%2010/WTL%2010.01%20Release/WTL10_01_Release.zip/download
+  SOLUTION_PATH: shaker-foobar2000/foo_vis_shaker.sln
+  COMPONENT_NAME: foo_vis_shaker
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check formatting
+        run: clang-format --dry-run --Werror shaker-foobar2000/*.cpp shaker-foobar2000/*.h
+        shell: bash
+
+      - name: Download foobar2000 SDK
+        run: |
+          curl -L -o fb2k-sdk.7z "${{ env.FB2K_SDK_URL }}"
+          7z x -ofoobar2000-sdk fb2k-sdk.7z -y
+        shell: bash
+
+      - name: Download WTL
+        run: |
+          curl -L -o wtl.zip "${{ env.WTL_URL }}"
+          7z x -owtl wtl.zip -y
+        shell: bash
+
+      - name: Patch SDK helpers for WTL include path
+        run: |
+          sed -i 's|<AdditionalIncludeDirectories>../..;..</AdditionalIncludeDirectories>|<AdditionalIncludeDirectories>../..;..;../../../wtl/Include</AdditionalIncludeDirectories>|g' foobar2000-sdk/foobar2000/helpers/foobar2000_sdk_helpers.vcxproj
+        shell: bash
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Build Release x64
+        run: msbuild ${{ env.SOLUTION_PATH }} -p:Configuration=Release -p:Platform=x64 -p:PlatformToolset=v143 -verbosity:minimal
+
+      - name: Package fb2k-component
+        run: |
+          cp shaker-foobar2000/Release/x64/${{ env.COMPONENT_NAME }}.dll .
+          7z a -tzip ${{ env.COMPONENT_NAME }}.fb2k-component ${{ env.COMPONENT_NAME }}.dll
+        shell: bash
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.COMPONENT_NAME }}
+          path: ${{ env.COMPONENT_NAME }}.fb2k-component
+
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: windows-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ env.COMPONENT_NAME }}
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ env.COMPONENT_NAME }}.fb2k-component
+          generate_release_notes: true

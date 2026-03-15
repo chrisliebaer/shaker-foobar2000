@@ -1,0 +1,24 @@
+# Downloaded dependencies (fetched during build)
+foobar2000-sdk/
+foobar2000-sdk.7z
+wtl/
+wtl.zip
+
+# Build output
+Debug/
+Release/
+x64/
+*.obj
+*.pch
+*.pdb
+*.ilk
+*.exp
+*.lib
+*.dll
+*.idb
+*.user
+*.suo
+*.sdf
+*.opensdf
+*.opendb
+.vs/
