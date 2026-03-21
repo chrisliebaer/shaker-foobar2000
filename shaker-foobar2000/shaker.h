@@ -13,6 +13,8 @@ class Shaker {
   public:
 	void Start();
 	void Stop();
+	void SetEnabled(bool enabled);
+	bool IsEnabled() const;
 	bool IsRunning() const {
 		return running_;
 	}

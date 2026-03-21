@@ -28,6 +28,10 @@ msbuild shaker-foobar2000/foo_vis_shaker.sln -p:Configuration=Release -p:Platfor
 
 The built DLL goes into `%APPDATA%/foobar2000-v2/user-components-x64/foo_vis_shaker/`.
 
+## Usage
+
+Toggle on/off via **Playback > Shaker**. A keyboard shortcut can be assigned in **Preferences > Keyboard Shortcuts**.
+
 ## License
 
 Do whatever you want with this. The original author gave [permission for derivative work](https://mastodon.social/@juni/110879255898603875).

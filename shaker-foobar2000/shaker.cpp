@@ -2,6 +2,10 @@
 #include "shaker.h"
 #include <dwmapi.h>
 
+// {66AB12C8-D37D-4C6E-B50B-D4C091F6E963}
+static const GUID guid_cfg_enabled = {0x66ab12c8, 0xd37d, 0x4c6e, {0xb5, 0x0b, 0xd4, 0xc0, 0x91, 0xf6, 0xe9, 0x63}};
+static cfg_bool cfg_enabled(guid_cfg_enabled, true);
+
 static Shaker* g_shaker = nullptr;
 
 static constexpr int SHAKE_DISTANCE = 8;
@@ -99,8 +103,18 @@ void CALLBACK Shaker::TimerProc(HWND, UINT, UINT_PTR, DWORD) {
 		g_shaker->Tick();
 }
 
+bool Shaker::IsEnabled() const {
+	return cfg_enabled;
+}
+
+void Shaker::SetEnabled(bool enabled) {
+	cfg_enabled = enabled;
+	if (!enabled)
+		Stop();
+}
+
 void Shaker::Start() {
-	if (running_)
+	if (running_ || !cfg_enabled)
 		return;
 
 	try {
@@ -149,6 +163,46 @@ void Shaker::Stop() {
 namespace {
 
 static Shaker g_shaker_instance;
+
+// {47220C1A-D068-49AA-9EA5-A1ED5F497D98}
+static const GUID guid_shaker_toggle = {0x47220c1a, 0xd068, 0x49aa, {0x9e, 0xa5, 0xa1, 0xed, 0x5f, 0x49, 0x7d, 0x98}};
+
+class ShakerMainMenu : public mainmenu_commands {
+  public:
+	t_uint32 get_command_count() override {
+		return 1;
+	}
+	GUID get_command(t_uint32) override {
+		return guid_shaker_toggle;
+	}
+	void get_name(t_uint32, pfc::string_base& out) override {
+		out = "Shaker";
+	}
+	bool get_description(t_uint32, pfc::string_base& out) override {
+		out = "Toggle window shaking on beat";
+		return true;
+	}
+	GUID get_parent() override {
+		return mainmenu_groups::playback;
+	}
+
+	void execute(t_uint32, service_ptr_t<service_base>) override {
+		g_shaker_instance.SetEnabled(!g_shaker_instance.IsEnabled());
+		if (g_shaker_instance.IsEnabled() && static_api_ptr_t<playback_control>()->is_playing() &&
+			!static_api_ptr_t<playback_control>()->is_paused()) {
+			g_shaker_instance.Start();
+		}
+	}
+
+	bool get_display(t_uint32 p_index, pfc::string_base& p_text, t_uint32& p_flags) override {
+		bool rv = mainmenu_commands::get_display(p_index, p_text, p_flags);
+		if (rv && g_shaker_instance.IsEnabled())
+			p_flags |= flag_checked;
+		return rv;
+	}
+};
+
+static mainmenu_commands_factory_t<ShakerMainMenu> g_shaker_menu;
 
 class ShakerInitQuit : public initquit {
   public:
